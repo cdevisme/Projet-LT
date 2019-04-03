@@ -1,0 +1,89 @@
+/* Fichier fichier1.acc */
+
+%prelude{ /* Code C */
+    /* Inclusion de bibliotheques C */
+    #include <stdio.h>
+    #include <malloc.h>
+    #include "yystype.h"
+
+    /* Action de fin d analyse */
+    void fin_analyse(){
+    }
+
+    /*Action qui verifie le nombre d'options*/
+    void nb_options(int a, int d, int t){
+        int error=0;
+        if(a>1) {printf("Erreur ! trop de commandes 'author' declarees\n"); error+=1;}
+        if(d>1) {printf("Erreur ! trop de commandes 'date' declarees\n"); error+=1;}
+        if(t>1) {printf("Erreur ! trop de commandes 'title' declarees\n"); error+=1;}
+        if(error !=0) yyerror("\nRevoir le nombre d'options du debut de document\n");
+    }
+
+}
+
+/* Declaration des tokens */
+%token BEGIN_DOC, END_DOC,  AUTHOR, TITLE, DATE, MAKETITLE, SEC, SUBSEC, SUBSUBSEC, GRAS, ITALIQUE, BEGIN_ITEMIZE, END_ITEMIZE, BEGIN_ENUM, END_ENUM, ITEM, LIGNE, DOTS, MOT, ACCOUV, ACCFER;
+
+// Grammaire
+
+racine : debut {fin_analyse();} ;
+
+debut : {if(nbt!=1 || nba!=1) printf("<title>");} options <nba, nbd, nbt> {if(nbt==1) printf("</title>");} {nb_options(nba, nbd, nbt);} BEGIN_DOC {printf("<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">");} maketitle {printf("\n</head>\n<body>");} contenu END_DOC {printf("\n</body>\n</html>");} ;
+
+/*Options facultatives de debut de document*/
+/*Attributs synthetises de options : nba, nbd et nbt*/
+
+options <%out int nba, int nbd, int nbt> : 
+    AUTHOR ACCOUV mot ACCFER options <nba1, nbd1, nbt1> {*nba=nba1+1; *nbd=nbd1; *nbt=nbt1;} |
+    DATE ACCOUV mot ACCFER options <nba1, nbd1, nbt1> {*nba=nba1; *nbd=nbd1+1; *nbt=nbt1;} |
+    TITLE ACCOUV mot ACCFER options <nba1, nbd1, nbt1> {*nba=nba1; *nbd=nbd1; *nbt=nbt1+1;} |
+    {*nba=0; *nbd=0; *nbt=0;} ;
+
+/*Option facultative*/
+maketitle : 
+    MAKETITLE |
+    ;
+
+commande : LIGNE {printf("<br/>");} |
+    GRAS {printf("<b>");} ACCOUV mot ACCFER {printf("</b>");} |
+    ITALIQUE {printf("<i>");} ACCOUV mot ACCFER {printf("</i>");} | 
+    DOTS {printf("...");} | 
+    ;
+
+mot : commande mot | 
+      MOT <val> {printf("\n%s", val.valChaine);} commande mot | 
+      ;
+
+contenu : commande contenu |
+    mot contenu |
+    liste contenu |
+    num contenu |
+    section |
+    ;
+
+liste : BEGIN_ITEMIZE {printf("<ul>");} mot item END_ITEMIZE {printf("</ul>");} | 
+    BEGIN_ITEMIZE {printf("<ul>");} liste END_ITEMIZE {printf("</ul>");} | 
+    BEGIN_ITEMIZE {printf("<ul>");} num END_ITEMIZE {printf("</ul>");} ;
+
+num : BEGIN_ENUM {printf("<ol>");} mot item END_ENUM {printf("</ol>");} | 
+      BEGIN_ENUM {printf("<ol>");} liste END_ENUM {printf("</ol>");} | 
+      BEGIN_ENUM {printf("<ol>");} num END_ENUM {printf("</ol>");} ;
+
+item : ITEM {printf("<li>");} mot {printf("</li>");} fin | 
+       ITEM {printf("<li>");} mot {printf("</li>");} liste fin | 
+       ITEM {printf("<li>");} mot {printf("</li>");} num fin ;
+
+fin : item | 
+      ;
+
+section : 
+    {printf("\n<h1>");} SEC ACCOUV mot ACCFER {printf("\n</h1>");} contenu section subsection |
+    ;
+
+subsection :
+    {printf("\n<h2>");} SUBSEC ACCOUV mot ACCFER {printf("\n</h2>");} contenu subsection subsubsection | 
+    ;
+    
+subsubsection :
+    {printf("\n<h3>");} SUBSUBSEC ACCOUV mot ACCFER {printf("\n</h3>");} contenu subsubsection | 
+    ;
